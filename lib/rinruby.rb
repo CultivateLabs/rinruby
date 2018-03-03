@@ -34,7 +34,6 @@
 #
 #Coded by:: David B. Dahl
 #Documented by:: David B. Dahl & Scott Crawford
-#Maintained by:: Claudio Bustos
 #Copyright:: 2005-2009
 #Web page:: http://rinruby.ddahl.org
 #E-mail::   mailto:rinruby@ddahl.org
@@ -62,7 +61,9 @@ class RinRuby
 
   require 'socket'
 
+
   VERSION = '2.0.3'
+
 
   attr_reader :interactive
   attr_reader :readline
@@ -97,12 +98,16 @@ class RinRuby
 #      >> require "rinruby"
 #      >> R.quit
 #      >> R = RinRuby.new(false)
-attr_accessor :echo_enabled
+attr_reader :echo_enabled
 attr_reader :executable
 attr_reader :port_number
 attr_reader :port_width
 attr_reader :hostname
 def initialize(*args)
+  init(args)
+end
+
+def init(*args)
   opts=Hash.new
   if args.size==1 and args[0].is_a? Hash
     opts=args[0]
@@ -115,73 +120,73 @@ def initialize(*args)
   end
   default_opts= {:echo=>true, :interactive=>true, :executable=>nil, :port_number=>38442, :port_width=>1000, :hostname=>'127.0.0.1'}
 
-    @opts=default_opts.merge(opts)
-    @port_width=@opts[:port_width]
-    @executable=@opts[:executable]
-    @hostname=@opts[:hostname]
-    while true
-      begin
-        @port_number = @opts[:port_number] + rand(port_width)
-        @server_socket = TCPServer::new(@hostname, @port_number)
-        break
-      rescue Errno::EADDRINUSE
-        sleep 0.5 if port_width == 1
-      end
+  @opts=default_opts.merge(opts)
+  @port_width=@opts[:port_width]
+  @executable=@opts[:executable]
+  @hostname=@opts[:hostname]
+  while true
+    begin
+      @port_number = @opts[:port_number] + rand(port_width)
+      @server_socket = TCPServer::new(@hostname, @port_number)
+      break
+    rescue Errno::EADDRINUSE
+      sleep 0.5 if port_width == 1
     end
-    @echo_enabled = @opts[:echo]
-    @echo_stderr = false
-    @interactive = @opts[:interactive]
-    @platform = case RUBY_PLATFORM
-      when /mswin/ then 'windows'
-      when /mingw/ then 'windows'
-      when /bccwin/ then 'windows'
-      when /cygwin/ then 'windows-cygwin'
-      when /java/
-        require 'java' #:nodoc:
-        if java.lang.System.getProperty("os.name") =~ /[Ww]indows/
-          'windows-java'
-        else
-          'default-java'
-        end
-      else 'default'
-    end
-    if @executable == nil
-      @executable = ( @platform =~ /windows/ ) ? find_R_on_windows(@platform =~ /cygwin/) : 'R'
-    end
-    platform_options = []
-    if ( @interactive )
-      begin
-        require 'readline'
-      rescue LoadError
-      end
-      @readline = defined?(Readline)
-      platform_options << ( ( @platform =~ /windows/ ) ? '--ess' : '--interactive' )
-    else
-      @readline = false
-    end
-    cmd = %Q<#{executable} #{platform_options.join(' ')} --slave>
-    @engine = IO.popen(cmd,"w+")
-    @reader = @engine
-    @writer = @engine
-    raise "Engine closed" if @engine.closed?
-    @writer.puts <<-EOF
-      #{RinRuby_KeepTrying_Variable} <- TRUE
-      while ( #{RinRuby_KeepTrying_Variable} ) {
-        #{RinRuby_Socket} <- try(suppressWarnings(socketConnection("#{@hostname}", #{@port_number}, blocking=TRUE, open="rb")),TRUE)
-        if ( inherits(#{RinRuby_Socket},"try-error") ) {
-          Sys.sleep(0.1)
-        } else {
-          #{RinRuby_KeepTrying_Variable} <- FALSE
-        }
-      }
-      rm(#{RinRuby_KeepTrying_Variable})
-    EOF
-    r_rinruby_get_value
-    r_rinruby_pull
-    r_rinruby_parseable
-    @socket = @server_socket.accept
-    echo(nil,true) if @platform =~ /.*-java/      # Redirect error messages on the Java platform
   end
+  @echo_enabled = @opts[:echo]
+  @echo_stderr = false
+  @interactive = @opts[:interactive]
+  @platform = case RUBY_PLATFORM
+    when /mswin/ then 'windows'
+    when /mingw/ then 'windows'
+    when /bccwin/ then 'windows'
+    when /cygwin/ then 'windows-cygwin'
+    when /java/
+      require 'java' #:nodoc:
+      if java.lang.System.getProperty("os.name") =~ /[Ww]indows/
+        'windows-java'
+      else
+        'default-java'
+      end
+    else 'default'
+  end
+  if @executable == nil
+    @executable = ( @platform =~ /windows/ ) ? find_R_on_windows(@platform =~ /cygwin/) : 'R'
+  end
+  platform_options = []
+  if ( @interactive )
+    begin
+      require 'readline'
+    rescue LoadError
+    end
+    @readline = defined?(Readline)
+    platform_options << ( ( @platform =~ /windows/ ) ? '--ess' : '--interactive' )
+  else
+    @readline = false
+  end
+  cmd = %Q<#{executable} #{platform_options.join(' ')} --slave>
+  @engine = IO.popen(cmd,"w+")
+  @reader = @engine
+  @writer = @engine
+  raise "Engine closed" if @engine.closed?
+  @writer.puts <<-EOF
+    #{RinRuby_KeepTrying_Variable} <- TRUE
+    while ( #{RinRuby_KeepTrying_Variable} ) {
+      #{RinRuby_Socket} <- try(suppressWarnings(socketConnection("#{@hostname}", #{@port_number}, blocking=TRUE, open="rb")),TRUE)
+      if ( inherits(#{RinRuby_Socket},"try-error") ) {
+        Sys.sleep(0.1)
+      } else {
+        #{RinRuby_KeepTrying_Variable} <- FALSE
+      }
+    }
+    rm(#{RinRuby_KeepTrying_Variable})
+  EOF
+  r_rinruby_get_value
+  r_rinruby_pull
+  r_rinruby_parseable
+  @socket = @server_socket.accept
+  echo(nil,true) if @platform =~ /.*-java/      # Redirect error messages on the Java platform
+end
 
 #The quit method will properly close the bridge between Ruby and R, freeing up system resources. This method does not need to be run when a Ruby script ends.
 
@@ -787,4 +792,3 @@ if ! defined?(R)
 
   R = RinRuby.new
 end
-
