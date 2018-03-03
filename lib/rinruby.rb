@@ -747,12 +747,12 @@ end
   end
   public :complete?
   def assignable?(string)
-    raise ParseError, "Parse error" if ! complete?(string)
+    raise ParseError, string if ! complete?(string)
     assign_engine(RinRuby_Parse_String,string)
     result = pull_engine("as.integer(ifelse(inherits(try({eval(parse(text=paste(#{RinRuby_Parse_String},'<- 1')))}, silent=TRUE),'try-error'),1,0))")
     @writer.puts "rm(#{RinRuby_Parse_String})"
     return true if result == [0]
-    raise ParseError, "Parse error"
+    raise ParseError, string
   end
 
   def find_R_on_windows(cygwin)
