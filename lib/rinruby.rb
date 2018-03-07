@@ -752,7 +752,7 @@ end
     result = pull_engine("as.integer(ifelse(inherits(try({eval(parse(text=paste(#{RinRuby_Parse_String},'<- 1')))}, silent=TRUE),'try-error'),1,0))")
     @writer.puts "rm(#{RinRuby_Parse_String})"
     return true if result == [0]
-    raise ParseError, string
+    raise ParseError, "assigned: #{string}, result: #{result}"
   end
 
   def find_R_on_windows(cygwin)
